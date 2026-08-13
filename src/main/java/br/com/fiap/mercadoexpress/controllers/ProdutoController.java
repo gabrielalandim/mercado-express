@@ -1,9 +1,9 @@
 package br.com.fiap.mercadoexpress.controllers;
 
+import br.com.fiap.mercadoexpress.dtos.ProdutoRequestDTO;
 import br.com.fiap.mercadoexpress.models.Produto;
 import br.com.fiap.mercadoexpress.services.ProdutoService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,95 +15,110 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
-@RequestMapping("/mercado") // Endpoint principal exigido
+@RequestMapping("/mercado")
 public class ProdutoController {
 
     @Autowired
     private ProdutoService service;
 
-    // READ - GET All
     @GetMapping
     public ResponseEntity<List<Produto>> getAll() {
         List<Produto> produtos = service.listarTodos();
+
         if (produtos.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         }
-        // Adicionando links HATEOAS para cada item da lista
+
         for (Produto produto : produtos) {
             long id = produto.getId();
             produto.add(linkTo(methodOn(ProdutoController.class).getById(id)).withSelfRel());
         }
+
         return new ResponseEntity<>(produtos, HttpStatus.OK);
     }
 
-    // READ - GET by ID (Consulta específica exigida)
     @GetMapping("/{id}")
     public ResponseEntity<Produto> getById(@PathVariable Long id) {
         Optional<Produto> produtoO = service.buscarPorId(id);
+
         if (produtoO.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
         Produto produto = produtoO.get();
-        // HATEOAS Nível 3: Link para ele mesmo e link para a lista completa
         produto.add(linkTo(methodOn(ProdutoController.class).getById(id)).withSelfRel());
         produto.add(linkTo(methodOn(ProdutoController.class).getAll()).withRel("Lista de Produtos"));
 
-        // Retorna o resultado da consulta com as informações do produto solicitado
         return new ResponseEntity<>(produto, HttpStatus.OK);
     }
 
-    // CREATE - POST
     @PostMapping
-    public ResponseEntity<Produto> create(@RequestBody Produto produto) {
+    public ResponseEntity<Produto> create(@RequestBody ProdutoRequestDTO dto) {
+        Produto produto = new Produto();
+        produto.setNome(dto.nome());
+        produto.setTipo(dto.tipo());
+        produto.setSetor(dto.setor());
+        produto.setTamanho(dto.tamanho());
+        produto.setPreco(dto.preco());
+
         Produto novoProduto = service.salvar(produto);
-        // Retorna HATEOAS no POST também
         novoProduto.add(linkTo(methodOn(ProdutoController.class).getById(novoProduto.getId())).withSelfRel());
+
         return new ResponseEntity<>(novoProduto, HttpStatus.CREATED);
     }
 
-    // UPDATE - PUT (Atualização completa)
     @PutMapping("/{id}")
-    public ResponseEntity<Produto> updatePut(@PathVariable Long id, @RequestBody Produto produtoAtualizado) {
+    public ResponseEntity<Produto> updatePut(@PathVariable Long id, @RequestBody ProdutoRequestDTO dto) {
         Optional<Produto> produtoO = service.buscarPorId(id);
+
         if (produtoO.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        produtoAtualizado.setId(id);
+
+        Produto produtoAtualizado = produtoO.get();
+        produtoAtualizado.setNome(dto.nome());
+        produtoAtualizado.setTipo(dto.tipo());
+        produtoAtualizado.setSetor(dto.setor());
+        produtoAtualizado.setTamanho(dto.tamanho());
+        produtoAtualizado.setPreco(dto.preco());
+
         Produto salvo = service.salvar(produtoAtualizado);
         salvo.add(linkTo(methodOn(ProdutoController.class).getById(salvo.getId())).withSelfRel());
+
         return new ResponseEntity<>(salvo, HttpStatus.OK);
     }
 
-    // UPDATE - PATCH (Atualização parcial)
     @PatchMapping("/{id}")
-    public ResponseEntity<Produto> updatePatch(@PathVariable Long id, @RequestBody Produto produtoAtualizado) {
+    public ResponseEntity<Produto> updatePatch(@PathVariable Long id, @RequestBody ProdutoRequestDTO dto) {
         Optional<Produto> produtoO = service.buscarPorId(id);
+
         if (produtoO.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
         Produto existente = produtoO.get();
-        // Lógica simples de merge para PATCH
-        if (produtoAtualizado.getNome() != null) existente.setNome(produtoAtualizado.getNome());
-        if (produtoAtualizado.getTipo() != null) existente.setTipo(produtoAtualizado.getTipo());
-        if (produtoAtualizado.getSetor() != null) existente.setSetor(produtoAtualizado.getSetor());
-        if (produtoAtualizado.getTamanho() != null) existente.setTamanho(produtoAtualizado.getTamanho());
-        if (produtoAtualizado.getPreco() != null) existente.setPreco(produtoAtualizado.getPreco());
+
+        if (dto.nome() != null) existente.setNome(dto.nome());
+        if (dto.tipo() != null) existente.setTipo(dto.tipo());
+        if (dto.setor() != null) existente.setSetor(dto.setor());
+        if (dto.tamanho() != null) existente.setTamanho(dto.tamanho());
+        if (dto.preco() != null) existente.setPreco(dto.preco());
 
         Produto salvo = service.salvar(existente);
         salvo.add(linkTo(methodOn(ProdutoController.class).getById(salvo.getId())).withSelfRel());
+
         return new ResponseEntity<>(salvo, HttpStatus.OK);
     }
 
-    // DELETE - Exclusão do BD pelo ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         Optional<Produto> produtoO = service.buscarPorId(id);
+
         if (produtoO.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        service.excluir(id); // Realiza a exclusão do BD pelo ID
+
+        service.excluir(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
